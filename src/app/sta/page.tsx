@@ -1,11 +1,25 @@
 "use client";
 import { useEffect, useState } from "react";
 
+const ADMIN_CODE = process.env.NEXT_PUBLIC_ADMIN_CODE || "hackathon";
+
 export default function Admin() {
   const [input, setInput] = useState("");
   const [remaining, setRemaining] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [authCode, setAuthCode] = useState("");
+  const [authed, setAuthed] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (authed) {
+      let interval: NodeJS.Timeout;
+      fetchTime();
+      interval = setInterval(fetchTime, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [authed]);
 
   async function fetchTime() {
     const res = await fetch("/api/timer");
@@ -15,13 +29,6 @@ export default function Admin() {
       setRunning(data.running);
     }
   }
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    fetchTime();
-    interval = setInterval(fetchTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   function formatTime(sec: number) {
     const h = String(Math.floor(sec / 3600)).padStart(2, "0");
@@ -59,6 +66,68 @@ export default function Admin() {
     });
     setLoading(false);
     fetchTime();
+  }
+
+  function handleAuth(e: React.FormEvent) {
+    e.preventDefault();
+    if (authCode === ADMIN_CODE) {
+      setAuthed(true);
+      setError("");
+    } else {
+      setError("Incorrect code");
+    }
+  }
+
+  if (!authed) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          minWidth: "100vw",
+          background: "#111",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "monospace",
+        }}
+      >
+        <form
+          onSubmit={handleAuth}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="password"
+            placeholder="Enter admin code"
+            value={authCode}
+            onChange={(e) => setAuthCode(e.target.value)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#fff",
+              fontSize: "2vw",
+              textAlign: "center",
+              width: "15vw",
+              marginBottom: "2vw",
+              borderBottom: "2px solid #fff",
+              outline: "none",
+            }}
+            autoFocus
+          />
+          <button type="submit" style={{ fontSize: "2vw" }}>
+            Enter
+          </button>
+          {error && (
+            <div style={{ color: "#f55", marginTop: "1vw" }}>{error}</div>
+          )}
+        </form>
+      </main>
+    );
   }
 
   return (
