@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 let timerState: {
   start: number | null;
-  duration: number;
+  duration: number; // total duration in seconds
   running: boolean;
-  remaining: number;
+  remaining: number; // only used when stopped
 } = {
   start: null,
   duration: 0,
@@ -26,7 +26,8 @@ function parseTime(str: string): number {
 
 function getRemaining() {
   if (!timerState.running) return timerState.remaining;
-  const elapsed = Math.floor((Date.now() - (timerState.start ?? 0)) / 1000);
+  if (timerState.start === null) return timerState.remaining;
+  const elapsed = Math.floor((Date.now() - timerState.start) / 1000);
   return Math.max(timerState.duration - elapsed, 0);
 }
 
@@ -40,25 +41,38 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const { action, time } = await req.json();
   if (action === "start") {
-    const duration = parseTime(time);
+    let duration = timerState.duration;
+    // If a new time is provided, use it; otherwise, resume from remaining
+    if (typeof time === "string" && time.trim() !== "") {
+      duration = parseTime(time);
+    } else if (!timerState.running && timerState.remaining > 0) {
+      duration = timerState.remaining;
+    }
     timerState = {
       start: Date.now(),
       duration,
       running: true,
-      remaining: duration,
+      remaining: duration, // for consistency, but not used while running
     };
   } else if (action === "stop") {
-    timerState = {
-      ...timerState,
-      running: false,
-      remaining: getRemaining(),
-    };
+    // Only update remaining if running
+    if (timerState.running && timerState.start !== null) {
+      const elapsed = Math.floor((Date.now() - timerState.start) / 1000);
+      const remaining = Math.max(timerState.duration - elapsed, 0);
+      timerState = {
+        ...timerState,
+        running: false,
+        remaining,
+        start: null,
+      };
+    }
+    // else: already stopped, do nothing
   } else if (action === "reset") {
     timerState = {
-      ...timerState,
+      start: null,
+      duration: timerState.duration,
       running: false,
       remaining: timerState.duration,
-      start: null,
     };
   }
   return NextResponse.json({
