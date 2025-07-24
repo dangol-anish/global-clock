@@ -1,21 +1,35 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function Home() {
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
     async function fetchTime() {
       const res = await fetch("/api/timer");
       if (res.ok) {
         const data = await res.json();
         setRemaining(data.remaining);
+        setRunning(data.running);
+        // If timer is not running and remaining is 0, stop polling
+        if (!data.running && data.remaining === 0 && intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
       }
     }
     fetchTime();
-    interval = setInterval(fetchTime, 1000);
-    return () => clearInterval(interval);
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(fetchTime, 1000);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, []);
 
   function formatTime(sec: number) {
@@ -45,7 +59,7 @@ export default function Home() {
           userSelect: "none",
         }}
       >
-        {remaining !== null ? formatTime(remaining) : "--:--:--"}
+        {remaining !== null ? formatTime(remaining) : "00:00:00"}
       </div>
     </main>
   );

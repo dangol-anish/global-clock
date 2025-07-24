@@ -15,8 +15,15 @@ export default function Admin() {
   useEffect(() => {
     if (authed) {
       let interval: NodeJS.Timeout;
-      fetchTime();
-      interval = setInterval(fetchTime, 1000);
+      function startPolling() {
+        interval = setInterval(fetchTime, 1000);
+      }
+      fetchTime().then(() => {
+        if (interval) clearInterval(interval);
+        if (running || (remaining !== 0 && remaining !== null)) {
+          startPolling();
+        }
+      });
       return () => clearInterval(interval);
     }
   }, [authed]);
@@ -27,6 +34,10 @@ export default function Admin() {
       const data = await res.json();
       setRemaining(data.remaining);
       setRunning(data.running);
+      // If timer is not running and remaining is 0, stop polling
+      if (!data.running && data.remaining === 0) {
+        // polling will stop on next effect cleanup
+      }
     }
   }
 
