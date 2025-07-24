@@ -6,23 +6,31 @@ export default function Home() {
   const [running, setRunning] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    async function fetchTime() {
-      const res = await fetch("/api/timer");
-      if (res.ok) {
-        const data = await res.json();
-        setRemaining(data.remaining);
-        setRunning(data.running);
-        // If timer is not running and remaining is 0, stop polling
-        if (!data.running && data.remaining === 0 && intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      }
+  async function fetchTime() {
+    const res = await fetch("/api/timer");
+    if (res.ok) {
+      const data = await res.json();
+      setRemaining(data.remaining);
+      setRunning(data.running);
     }
-    fetchTime();
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(fetchTime, 1000);
+  }
+
+  // Polling effect
+  useEffect(() => {
+    // Start polling if running
+    if (running) {
+      fetchTime();
+      if (!intervalRef.current) {
+        intervalRef.current = setInterval(fetchTime, 1000);
+      }
+    } else {
+      // Stop polling if not running
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      // Always fetch once to get the stopped state
+      fetchTime();
     }
     return () => {
       if (intervalRef.current) {
@@ -30,6 +38,11 @@ export default function Home() {
         intervalRef.current = null;
       }
     };
+  }, [running]);
+
+  // On mount, fetch initial state
+  useEffect(() => {
+    fetchTime();
   }, []);
 
   function formatTime(sec: number) {

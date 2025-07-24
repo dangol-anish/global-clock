@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 const ADMIN_CODE = process.env.NEXT_PUBLIC_ADMIN_CODE || "hackathon";
 
@@ -11,21 +11,33 @@ export default function Admin() {
   const [authCode, setAuthCode] = useState("");
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState("");
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (authed) {
-      let interval: NodeJS.Timeout;
-      function startPolling() {
-        interval = setInterval(fetchTime, 1000);
-      }
-      fetchTime().then(() => {
-        if (interval) clearInterval(interval);
-        if (running || (remaining !== 0 && remaining !== null)) {
-          startPolling();
+      if (running) {
+        fetchTime();
+        if (!intervalRef.current) {
+          intervalRef.current = setInterval(fetchTime, 1000);
         }
-      });
-      return () => clearInterval(interval);
+      } else {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        fetchTime();
+      }
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
     }
+  }, [authed, running]);
+
+  useEffect(() => {
+    if (authed) fetchTime();
   }, [authed]);
 
   async function fetchTime() {
@@ -34,10 +46,6 @@ export default function Admin() {
       const data = await res.json();
       setRemaining(data.remaining);
       setRunning(data.running);
-      // If timer is not running and remaining is 0, stop polling
-      if (!data.running && data.remaining === 0) {
-        // polling will stop on next effect cleanup
-      }
     }
   }
 
